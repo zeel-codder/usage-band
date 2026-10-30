@@ -37,6 +37,16 @@ At the prompt of a terminal session:
 
 Answer `y` to add the marketplace, then choose a scope.
 
+## Update
+
+From a shell:
+
+```
+claude plugin update usage-band
+```
+
+Then start a new session to load the new version.
+
 ## What it shows
 
 - **Creature:** an animated pixel blob that shows how full the context window is: asleep when empty,
