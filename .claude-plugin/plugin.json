@@ -1,0 +1,6 @@
+{
+  "name": "usage-band",
+  "version": "0.1.0",
+  "description": "A band above the prompt: this chat's tokens and cost, and the rate-limit bars",
+  "types": "./types/index.d.ts"
+}

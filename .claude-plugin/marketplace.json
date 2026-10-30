@@ -1,0 +1,5 @@
+{
+  "name": "usage-band",
+  "owner": { "name": "zeel-codder" },
+  "plugins": [{ "name": "usage-band", "source": "./" }]
+}
