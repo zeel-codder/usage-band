@@ -2,13 +2,16 @@ import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
 import type { Limit, Measure, Tokens } from '../types'
+import { MOOD_COLOR, moodOf, sprite } from './sprite'
 
 const NO_TOKENS: Tokens = { input: 0, output: 0, cached: 0 }
 const NO_MEASURE: Measure = { limits: [] }
 const BAR_CELLS = 12
+const FRAME_MS = 800
 
 const tokens = atom({ plugin: 'usage-band', key: 'tokens' } as const, NO_TOKENS)
 const measure = atom({ plugin: 'usage-band', key: 'measure' } as const, NO_MEASURE)
+const frame = atom({ plugin: 'usage-band', key: 'frame' } as const, 0)
 
 const LABELS: Record<string, string> = {
   five_hour: '5h',
@@ -40,16 +43,24 @@ const untilReset = (resetsAt: string | undefined, now: number): string => {
   return `resets ${Math.floor(hours / 24)}d ${hours % 24}h`
 }
 
-const toMeasure = (usd: number | undefined, limits: readonly Limit[]): Measure => ({
-  usd,
-  limits: limits.map(({ kind, percentUsed, resetsAt }) => ({ kind, percentUsed, resetsAt })),
+type Reading = {
+  cost?: { usd: number }
+  rateLimits: readonly Limit[]
+  context: { percent?: number }
+}
+
+const toMeasure = ({ cost, rateLimits, context }: Reading): Measure => ({
+  usd: cost?.usd,
+  contextPercent: context.percent,
+  limits: rateLimits.map(({ kind, percentUsed, resetsAt }) => ({ kind, percentUsed, resetsAt })),
 })
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const result = await next(e)
     const usage = await $.session.usage()
-    await update($, measure, () => toMeasure(usage.cost?.usd, usage.rateLimits))
+    await update($, measure, () => toMeasure(usage))
+    $.clock.every(FRAME_MS, () => update($, frame, f => f + 1))
     return result
   })
 
@@ -75,7 +86,7 @@ export const register: Register = on => {
   })
 
   on('session.measure', async ($, e, next) => {
-    await update($, measure, () => toMeasure(e.cost?.usd, e.rateLimits))
+    await update($, measure, () => toMeasure(e))
     return next(e)
   })
 
@@ -85,25 +96,36 @@ export const register: Register = on => {
     }
 
     const t = await read($, tokens)
-    const { usd, limits } = await read($, measure)
+    const { usd, limits, contextPercent = 0 } = await read($, measure)
     const now = await $.clock.now()
+    const mood = moodOf(contextPercent)
+    const rows = sprite(mood, await read($, frame))
     const { Box, Text } = $.ui.resolve(e)
 
     return (
-      <Box flexDirection="column">
-        <Text>
-          <Text dimColor>chat </Text>
-          {count(t.input)} in · {count(t.output)} out · {count(t.cached)} cache
-          {usd === undefined ? '' : ` · $${usd.toFixed(2)}`}
-        </Text>
-        {limits.map(limit => (
-          <Text key={limit.kind}>
-            <Text dimColor>{(LABELS[limit.kind] ?? limit.kind).padEnd(5)}</Text>
-            <Text color={barColor(limit.percentUsed)}>{bar(limit.percentUsed)}</Text>
-            {` ${Math.round(limit.percentUsed)}% `}
-            <Text dimColor>{untilReset(limit.resetsAt, now)}</Text>
+      <Box flexDirection="row">
+        <Box flexDirection="column">
+          {rows.map((row, i) => (
+            <Text key={i} color={MOOD_COLOR[mood]}>
+              {row}
+            </Text>
+          ))}
+        </Box>
+        <Box flexDirection="column">
+          <Text>
+            ctx {contextPercent}%<Text dimColor> · chat </Text>
+            {count(t.input)} in · {count(t.output)} out · {count(t.cached)} cache
+            {usd === undefined ? '' : ` · $${usd.toFixed(2)}`}
           </Text>
-        ))}
+          {limits.map(limit => (
+            <Text key={limit.kind}>
+              <Text dimColor>{(LABELS[limit.kind] ?? limit.kind).padEnd(5)}</Text>
+              <Text color={barColor(limit.percentUsed)}>{bar(limit.percentUsed)}</Text>
+              {` ${Math.round(limit.percentUsed)}% `}
+              <Text dimColor>{untilReset(limit.resetsAt, now)}</Text>
+            </Text>
+          ))}
+        </Box>
       </Box>
     )
   })
