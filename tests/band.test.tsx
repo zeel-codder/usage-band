@@ -70,3 +70,28 @@ test('the band shows tokens, cost and both limit bars', async ($, on) => {
   expect((await ui.find({ type: 'Text', text: /7d/ }))?.text).toContain('25%')
   await ui.unmount()
 })
+
+test('with the creature off the band is two lines', { options: { creature: false } }, async ($, on) => {
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  on('clock.now', () => ({ value: 0 }))
+
+  await $.session.measure({
+    context: { window: 200000, percent: 75 },
+    rateLimits: [
+      { kind: 'five_hour', percentUsed: 50 },
+      { kind: 'seven_day', percentUsed: 25 },
+    ],
+    cost: { usd: 1.5 },
+    changed: ['context', 'cost', 'rateLimits'],
+  })
+
+  const ui = await $.ui.mount(BAND as never)
+
+  expect(await ui.find({ type: 'Text', text: /█▀▄██▄▀█/ })).toBeFalsy()
+  expect((await ui.find({ type: 'Text', text: /ctx/ }))?.text).toContain('ctx 75%')
+  const limits = (await ui.find({ type: 'Text', text: /5h/ }))?.text
+  expect(limits).toContain('50%')
+  expect(limits).toContain('7d')
+  expect(limits).toContain('25%')
+  await ui.unmount()
+})

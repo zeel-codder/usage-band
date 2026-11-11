@@ -1,6 +1,14 @@
 {
   "name": "usage-band",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A band above the prompt: this chat's tokens and cost, and the rate-limit bars",
-  "types": "./types/index.d.ts"
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "creature": {
+      "type": "boolean",
+      "title": "Show the creature",
+      "description": "Draw the animated creature beside the band. Off: the band is two lines, with the context percent in the creature's colour.",
+      "default": true
+    }
+  }
 }

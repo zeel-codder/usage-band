@@ -60,6 +60,19 @@ Then start a new session to load the new version.
 
 The plugin makes no model or network calls of its own, so it uses none of your limits.
 
+## Settings
+
+Open `/config` and find **Show the creature** under usage-band.
+
+- **On** (default): the creature is drawn beside the band, which is four lines high.
+- **Off**: no creature and no animation. The band is two lines: tokens and cost on the first, both
+  limit bars on the second. The context percent takes the creature's colour.
+
+```
+ctx 42% · chat 1.2k in · 3.4k out · 2.1M cache · $1.20
+5h   ███████░░░░░ 60% resets 2h 10m  7d   ████░░░░░░░░ 30% resets 3d 4h
+```
+
 ## Development
 
 ```

@@ -55,12 +55,16 @@ const toMeasure = ({ cost, rateLimits, context }: Reading): Measure => ({
   limits: rateLimits.map(({ kind, percentUsed, resetsAt }) => ({ kind, percentUsed, resetsAt })),
 })
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  const showCreature = options.creature !== false
+
   on('session.start', async ($, e, next) => {
     const result = await next(e)
     const usage = await $.session.usage()
     await update($, measure, () => toMeasure(usage))
-    $.clock.every(FRAME_MS, () => update($, frame, f => f + 1))
+    if (showCreature) {
+      $.clock.every(FRAME_MS, () => update($, frame, f => f + 1))
+    }
     return result
   })
 
@@ -99,8 +103,40 @@ export const register: Register = on => {
     const { usd, limits, contextPercent = 0 } = await read($, measure)
     const now = await $.clock.now()
     const mood = moodOf(contextPercent)
-    const rows = sprite(mood, await read($, frame))
     const { Box, Text } = $.ui.resolve(e)
+
+    const limitText = (limit: Limit, gap = '') => (
+      <Text key={limit.kind}>
+        {gap}
+        <Text dimColor>{(LABELS[limit.kind] ?? limit.kind).padEnd(5)}</Text>
+        <Text color={barColor(limit.percentUsed)}>{bar(limit.percentUsed)}</Text>
+        {` ${Math.round(limit.percentUsed)}% `}
+        <Text dimColor>{untilReset(limit.resetsAt, now)}</Text>
+      </Text>
+    )
+
+    const usageLine = (
+      <Text>
+        ctx{' '}
+        <Text {...(showCreature ? {} : { color: MOOD_COLOR[mood] })}>{contextPercent}%</Text>
+        <Text dimColor> · chat </Text>
+        {count(t.input)} in · {count(t.output)} out · {count(t.cached)} cache
+        {usd === undefined ? '' : ` · $${usd.toFixed(2)}`}
+      </Text>
+    )
+
+    if (!showCreature) {
+      return (
+        <Box flexDirection="column">
+          {usageLine}
+          {limits.length > 0 ? (
+            <Text>{limits.map((limit, i) => limitText(limit, i > 0 ? '  ' : ''))}</Text>
+          ) : null}
+        </Box>
+      )
+    }
+
+    const rows = sprite(mood, await read($, frame))
 
     return (
       <Box flexDirection="row">
@@ -112,19 +148,8 @@ export const register: Register = on => {
           ))}
         </Box>
         <Box flexDirection="column">
-          <Text>
-            ctx {contextPercent}%<Text dimColor> · chat </Text>
-            {count(t.input)} in · {count(t.output)} out · {count(t.cached)} cache
-            {usd === undefined ? '' : ` · $${usd.toFixed(2)}`}
-          </Text>
-          {limits.map(limit => (
-            <Text key={limit.kind}>
-              <Text dimColor>{(LABELS[limit.kind] ?? limit.kind).padEnd(5)}</Text>
-              <Text color={barColor(limit.percentUsed)}>{bar(limit.percentUsed)}</Text>
-              {` ${Math.round(limit.percentUsed)}% `}
-              <Text dimColor>{untilReset(limit.resetsAt, now)}</Text>
-            </Text>
-          ))}
+          {usageLine}
+          {limits.map(limit => limitText(limit))}
         </Box>
       </Box>
     )
